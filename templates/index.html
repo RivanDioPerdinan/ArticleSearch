@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Article Search</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Article Search</h1>
+        <div class="search-bar">
+            <input type="text" id="query" placeholder="Enter your search query here..." />
+            <button onclick="searchArticles()">Search</button>
+        </div>
+        <div class="results" id="results"></div>
+        <div class="pagination" id="pagination"></div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        let totalResults = 0;
+        const resultsPerPage = 10;
+        let totalPages = 0;
+        let allArticles = [];
+
+        function searchArticles() {
+            const query = document.getElementById("query").value;
+
+            if (!query) {
+                alert("Please enter a search query.");
+                return;
+            }
+
+            const resultsDiv = document.getElementById("results");
+            const paginationDiv = document.getElementById("pagination");
+            resultsDiv.innerHTML = "<p>Loading results...</p>";
+            paginationDiv.innerHTML = ""; // Clear pagination
+
+            fetch(`http://127.0.0.1:5000/search?query=${query}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Server error: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    allArticles = data.results;
+                    totalResults = allArticles.length;
+                    totalPages = Math.ceil(totalResults / resultsPerPage);
+
+                    showPage(currentPage); // Display the current page of results
+                    setupPagination();
+                })
+                .catch(error => {
+                    console.error("Error fetching articles:", error);
+                    resultsDiv.innerHTML = "<p>Failed to fetch results. Please try again later.</p>";
+                });
+        }
+
+        function showPage(page) {
+            const resultsDiv = document.getElementById("results");
+            const start = (page - 1) * resultsPerPage;
+            const end = start + resultsPerPage;
+
+            const currentPageArticles = allArticles.slice(start, end);
+            resultsDiv.innerHTML = ""; // Clear previous results
+
+            currentPageArticles.forEach(article => {
+                const articleDiv = document.createElement("div");
+                articleDiv.classList.add("article");
+                articleDiv.innerHTML = `
+                    <h3><a href="${article.url}" target="_blank">${article.title}</a></h3>
+                    <p>${article.description || "No description available."}</p>
+                    <small>
+                        <span class="score">TF-IDF Score: ${article.tfidf_score !== undefined && article.tfidf_score !== null ? article.tfidf_score.toFixed(2) : "N/A"}</span>, 
+                        <span class="score">BM25 Score: ${article.bm25_score !== undefined && article.bm25_score !== null ? article.bm25_score.toFixed(2) : "N/A"}</span>, 
+                        <span class="score">Combined Score: ${article.combined_score !== undefined && article.combined_score !== null ? article.combined_score.toFixed(2) : "N/A"}</span>
+                    </small>
+                `;
+                resultsDiv.appendChild(articleDiv);
+            });
+        }
+
+        function setupPagination() {
+            const paginationDiv = document.getElementById("pagination");
+            paginationDiv.innerHTML = ""; // Clear pagination
+
+            // Previous Page Button
+            const prevButton = document.createElement("button");
+            prevButton.textContent = "Previous";
+            prevButton.disabled = currentPage === 1;
+            prevButton.addEventListener("click", () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    showPage(currentPage);
+                    setupPagination();
+                }
+            });
+            paginationDiv.appendChild(prevButton);
+
+            // Page Numbers
+            for (let i = 1; i <= totalPages; i++) {
+                const pageButton = document.createElement("button");
+                pageButton.textContent = i;
+                if (i === currentPage) {
+                    pageButton.disabled = true;
+                }
+                pageButton.addEventListener("click", () => {
+                    currentPage = i;
+                    showPage(currentPage);
+                    setupPagination();
+                });
+                paginationDiv.appendChild(pageButton);
+            }
+
+            // Next Page Button
+            const nextButton = document.createElement("button");
+            nextButton.textContent = "Next";
+            nextButton.disabled = currentPage === totalPages;
+            nextButton.addEventListener("click", () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    showPage(currentPage);
+                    setupPagination();
+                }
+            });
+            paginationDiv.appendChild(nextButton);
+        }
+    </script>
+</body>
+</html>
